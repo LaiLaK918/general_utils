@@ -1,0 +1,17 @@
+[project]
+name = "general-utils"
+version = "0.1.0"
+description = "Python Repository with general utilities"
+authors = [
+    { name = "Hoang", email = "hoanglexuan5@gmail.com" },
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "loguru>=0.7.3",
+    "memoization>=0.4.0",
+    "pydantic>=2.11.3",
+    "pydantic-settings>=2.9.1",
+    "ruamel-yaml>=0.18.10",
+]
