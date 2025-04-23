@@ -7,7 +7,7 @@ import loguru
 import loguru._logger
 from memoization import cached, CachingAlgorithmFlag
 
-from config.config import Configs
+from ..config.config import Configs
 
 
 class RoleType(Enum):

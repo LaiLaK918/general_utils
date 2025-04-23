@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import Dict, Any
 from pathlib import Path
 
-from config.pydantic_settings_file import (
+from .pydantic_settings_file import (
     BaseFileSettings,
     SettingsConfigDict,
     settings_property,
