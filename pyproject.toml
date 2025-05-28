@@ -1,6 +1,6 @@
 [project]
 name = "general_utils"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python Repository with general utilities"
 authors = [
     { name = "Hoang", email = "hoanglexuan5@gmail.com" },
@@ -9,9 +9,11 @@ license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "argon2-cffi>=23.1.0",
+    "bson>=0.5.10",
     "loguru>=0.7.3",
     "memoization>=0.4.0",
-    "pydantic>=2.11.3",
+    "pydantic[email]>=2.11.3",
     "pydantic-settings>=2.9.1",
     "ruamel-yaml>=0.18.10",
 ]
