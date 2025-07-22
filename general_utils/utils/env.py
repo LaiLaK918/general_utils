@@ -4,8 +4,8 @@ import os
 def get_env(name: str):
     """
     Get the value of an environment variable.
-    If the variable is not set, raise an exception.
 
+    If the variable is not set, raise an exception.
     :param name: The name of the environment variable.
     :return: The value of the environment variable, or None if it is not set.
     :raises KeyError: If the environment variable is not set.

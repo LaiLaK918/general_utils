@@ -5,7 +5,7 @@ from enum import Enum
 
 import loguru
 import loguru._logger
-from memoization import cached, CachingAlgorithmFlag
+from memoization import CachingAlgorithmFlag, cached
 
 from ..config.config import Configs
 
@@ -26,17 +26,21 @@ def _filter_logs(record: dict) -> bool:
     return True
 
 
-# 默认每调用一次 build_logger 就会添加一次 hanlder，
+# By default, each time build_logger is called, a handler is added.
 @cached(max_size=100, algorithm=CachingAlgorithmFlag.LRU)
 def build_logger(log_file: str = "Auto-Pentest"):
     """
-    build a logger with colorized output and a log file, for example:
+    Build a logger with colorized output and a log file.
 
-    logger = build_logger("api")
-    logger.info("<green>some message</green>")
-
-    user can set basic_settings.log_verbose=True to output debug logs
+    User can set basic_settings.log_verbose=True to output debug logs
     use logger.exception to log errors with exceptions
+    Example:
+        ```python
+        from general_utils.utils.log_common import build_logger
+        logger = build_logger("api")
+        logger.info("<green>some message</green>")
+        ```
+
     """
     loguru.logger._core.handlers[0]._filter = _filter_logs
     logger = loguru.logger
@@ -74,7 +78,7 @@ def get_log_file(log_path: str, sub_dir: str):
 
 
 def get_config_dict(
-        log_level: str, log_file_path: str, log_backup_count: int, log_max_bytes: int
+    log_level: str, log_file_path: str, log_backup_count: int, log_max_bytes: int
 ) -> dict:
     # for windows, the path should be a raw string.
     log_file_path = (

@@ -1,16 +1,15 @@
-import os
-
 import dataclasses
+import os
 import sys
 from enum import StrEnum
-from typing import Dict, Any
 from pathlib import Path
+from typing import Any, Dict
 
 from .pydantic_settings_file import (
     BaseFileSettings,
     SettingsConfigDict,
-    settings_property,
     cached_property,
+    settings_property,
 )
 
 PENTEST_ROOT = Path(os.environ.get("PENTEST_ROOT", ".")).resolve()
@@ -21,7 +20,7 @@ class Mode(StrEnum):
     Manual = "manual"
     SemiAuto = "semi"
 
-    def __missing__(self, key):
+    def __missing__(self, key):  # noqa: D105
         return self.Auto
 
 

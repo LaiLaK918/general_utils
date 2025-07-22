@@ -1,6 +1,6 @@
 [project]
 name = "general_utils"
-version = "0.1.1"
+version = "0.1.2"
 description = "Python Repository with general utilities"
 authors = [
     { name = "Hoang", email = "hoanglexuan5@gmail.com" },
@@ -16,7 +16,39 @@ dependencies = [
     "pydantic[email]>=2.11.3",
     "pydantic-settings>=2.9.1",
     "ruamel-yaml>=0.18.10",
+    "ruff>=0.12.4",
 ]
+
+[tool.ruff]
+lint.select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "D",    # pydocstyle
+    "T201",
+    "UP",
+]
+lint.ignore = [
+    "UP006",
+    "UP007",
+    # We actually do want to import from typing_extensions
+    "UP035",
+    "UP045",
+    # Relax the convention by _not_ requiring documentation for every function parameter.
+    "D417",
+    "E501",
+    "D100",
+    "D101",
+    "D200",
+    "D102",
+    "D103",
+    "D104",
+    "T201", # Allow print statements
+    "D212", # Multi-line docstring summary should start at the first line,
+    "D401", # First line should be in imperative mood
+    "D106", # Missing docstring in public nested class
+]
+exclude = ["*.ipynb"]
 
 [build-system]
 requires = ["hatchling"]
