@@ -49,8 +49,9 @@ def measure_execution_time(func=None, *, logger=None):
             start_time = time.time()
             result = f(*args, **kwargs)
             end_time = time.time()
+            module_name = f.__module__ if f.__module__ else "unknown"
             logger.info(
-                f"Function {f.__name__} took {end_time - start_time:.4f} seconds to execute"
+                f"Function {module_name}.{f.__name__} took {end_time - start_time:.4f} seconds to execute"
             )
             return result
 
@@ -109,8 +110,9 @@ def measure_execution_time_async(func=None, *, logger=None):
             start_time = time.time()
             result = await f(*args, **kwargs)
             end_time = time.time()
+            module_name = f.__module__ if f.__module__ else "unknown"
             logger.info(
-                f"Function {f.__name__} took {end_time - start_time:.4f} seconds to execute"
+                f"Function {module_name}.{f.__name__} took {end_time - start_time:.4f} seconds to execute"
             )
             return result
 
