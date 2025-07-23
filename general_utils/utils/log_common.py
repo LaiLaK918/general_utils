@@ -1,19 +1,12 @@
 import logging
 import os
 import time
-from enum import Enum
 
 import loguru
 import loguru._logger
 from memoization import CachingAlgorithmFlag, cached
 
 from ..config.config import Configs
-
-
-class RoleType(Enum):
-    COLLECTOR = "Collection"
-    SCANNER = "Scanning"
-    EXPLOITER = "Exploitation"
 
 
 def _filter_logs(record: dict) -> bool:
