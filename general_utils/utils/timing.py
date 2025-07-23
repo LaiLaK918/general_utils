@@ -1,3 +1,6 @@
+import inspect
+import os
+import sys
 import time
 from functools import wraps
 
@@ -46,24 +49,25 @@ def measure_execution_time(func=None, *, logger=None):
 
         @wraps(f)
         def wrapper(*args, **kwargs):
-            import inspect
-
             start_time = time.time()
             result = f(*args, **kwargs)
             end_time = time.time()
-            import inspect
-            import os
-            import sys
 
-            # Find the first frame in user's project
+            # Find the first frame outside of timing.py (the real call site)
             module_path = None
             lineno = -1
+            project_file_path = "unknown"
             frame = inspect.currentframe()
             outer_frames = inspect.getouterframes(frame)
-            project_file_path = "unknown"
             for frameinfo in outer_frames:
                 fname = frameinfo.filename
-                if "/general_utils/" in fname:
+                # Skip frames from timing.py, asyncio, and standard library
+                if (
+                    not fname.endswith("timing.py")
+                    and "/asyncio/" not in fname
+                    and not fname.startswith("<")
+                    and "site-packages" not in fname
+                ):
                     # Try to get module path from filename
                     for mod in sys.modules.values():
                         if hasattr(mod, "__file__") and mod.__file__:
@@ -80,7 +84,6 @@ def measure_execution_time(func=None, *, logger=None):
                         rel_path = os.path.relpath(fname, start=os.getcwd())
                         module_path = rel_path.replace(os.sep, ".").rsplit(".", 1)[0]
                     lineno = frameinfo.lineno
-                    # Add project file path (relative to current working directory)
                     project_file_path = os.path.relpath(fname, start=os.getcwd())
                     break
             if not module_path:
@@ -143,23 +146,24 @@ def measure_execution_time_async(func=None, *, logger=None):
 
         @wraps(f)
         async def wrapper(*args, **kwargs):
-            import inspect
-
             start_time = time.time()
             result = await f(*args, **kwargs)
             end_time = time.time()
-            import inspect
-            import os
-            import sys
 
             module_path = None
             lineno = -1
+            project_file_path = "unknown"
             frame = inspect.currentframe()
             outer_frames = inspect.getouterframes(frame)
-            project_file_path = "unknown"
             for frameinfo in outer_frames:
                 fname = frameinfo.filename
-                if "/general_utils/" in fname:
+                # Skip frames from timing.py, asyncio, and standard library
+                if (
+                    not fname.endswith("timing.py")
+                    and "/asyncio/" not in fname
+                    and not fname.startswith("<")
+                    and "site-packages" not in fname
+                ):
                     for mod in sys.modules.values():
                         if hasattr(mod, "__file__") and mod.__file__:
                             if not (
