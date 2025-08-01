@@ -10,7 +10,6 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "argon2-cffi>=23.1.0",
-    "bson>=0.5.10",
     "loguru>=0.7.3",
     "memoization>=0.4.0",
     "pydantic[email]>=2.11.3",
