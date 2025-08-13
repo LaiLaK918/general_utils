@@ -24,10 +24,10 @@ Requires Python 3.12+.
 pip install git+https://github.com/LaiLaK918/general-utils.git
 ```
 
-Or if/when published to PyPI (placeholder):
+Or using uv:
 
 ```bash
-pip install general_utils
+uv add git+https://github.com/LaiLaK918/general-utils.git
 ```
 
 ## 🗂 Package Overview
