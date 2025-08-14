@@ -2,7 +2,7 @@
 
 # general-utils
 
-Composable Python utilities for everyday backend work: Argon2 password helpers, Redis + FastAPI response caching, YAML‑backed dynamic Pydantic settings, structured logging (Loguru), environment variable access, and execution time (sync & async) decorators.
+Composable Python utilities for everyday backend work: Argon2 password helpers, Redis + FastAPI response caching, YAML‑backed dynamic Pydantic settings, structured logging (Loguru), environment variable access, and execution time (sync & async) decorators, and OpenTelemetry tracing.
 
 </div>
 
@@ -15,6 +15,7 @@ Composable Python utilities for everyday backend work: Argon2 password helpers, 
 - Execution timing decorators for sync & async functions with automatic call‑site resolution.
 - Safe environment variable accessor that validates presence & non‑empty values.
 - Lightweight, no framework lock‑in—import only what you need.
+- OpenTelemetry tracing support for instrumenting code with spans.
 
 ## 🧩 Install
 
