@@ -2,7 +2,7 @@
 
 # general-utils
 
-Composable Python utilities for everyday backend work: Argon2 password helpers, Redis + FastAPI response caching, YAML‑backed dynamic Pydantic settings, structured logging (Loguru), environment variable access, and execution time (sync & async) decorators.
+Composable Python utilities for everyday backend work: Argon2 password helpers, Redis + FastAPI response caching, YAML‑backed dynamic Pydantic settings, structured logging (Loguru), environment variable access, and execution time (sync & async) decorators, and OpenTelemetry tracing.
 
 </div>
 
@@ -15,6 +15,7 @@ Composable Python utilities for everyday backend work: Argon2 password helpers, 
 - Execution timing decorators for sync & async functions with automatic call‑site resolution.
 - Safe environment variable accessor that validates presence & non‑empty values.
 - Lightweight, no framework lock‑in—import only what you need.
+- OpenTelemetry tracing support for instrumenting code with spans.
 
 ## 🧩 Install
 
@@ -40,6 +41,7 @@ uv add git+https://github.com/LaiLaK918/general-utils.git
 | `general_utils.utils.log_common`      | Loguru logger factory & logging helpers                |
 | `general_utils.utils.timing`          | Execution time decorators (sync & async)               |
 | `general_utils.utils.env`             | Strict environment variable retrieval                  |
+| `general_utils.trace.otel`            | OpenTelemetry tracing setup                             |
 
 ## 🔐 Auth Helpers
 
@@ -148,6 +150,22 @@ asyncio.run(compute_async())
 
 Logs include module path, file location, line number, and elapsed time.
 
+## OpenTelemetry Tracing
+
+```python
+from general_utils.trace.otel import OpenTelemetryTracer
+
+tracer = OpenTelemetryTracer(
+	service_name="my-service", 
+	oltp_endpoint="http://localhost:4317", 
+	oltp_insecure=True)
+
+@tracer.start_span("example_span")
+def example_function(x, y):
+    return x + y
+result = example_function(5, 10)
+```
+
 ## 🌱 Environment Variables
 
 ```python
@@ -179,6 +197,7 @@ ruff check --fix
 - ruamel-yaml – preserving comments & formatting for templates
 - redis – caching backend (async used in decorator)
 - fastapi – (optional) for the response caching decorator
+- opentelemetry-api / opentelemetry-sdk – tracing support
 
 ## 🚀 Roadmap Ideas
 
