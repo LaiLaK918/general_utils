@@ -159,14 +159,18 @@ dependencies = [
     { name = "fastapi" },
     { name = "loguru" },
     { name = "memoization" },
-    { name = "opentelemetry-api" },
-    { name = "opentelemetry-exporter-jaeger" },
-    { name = "opentelemetry-exporter-otlp-proto-grpc" },
     { name = "pydantic", extra = ["email"] },
     { name = "pydantic-settings" },
     { name = "redis" },
     { name = "ruamel-yaml" },
     { name = "ruff" },
+]
+
+[package.optional-dependencies]
+trace = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-jaeger" },
+    { name = "opentelemetry-exporter-otlp-proto-grpc" },
 ]
 
 [package.metadata]
@@ -175,15 +179,16 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.116.1" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "memoization", specifier = ">=0.4.0" },
-    { name = "opentelemetry-api", specifier = ">=1.36.0" },
-    { name = "opentelemetry-exporter-jaeger", specifier = ">=1.21.0" },
-    { name = "opentelemetry-exporter-otlp-proto-grpc", specifier = ">=1.15.0" },
+    { name = "opentelemetry-api", marker = "extra == 'trace'", specifier = ">=1.36.0" },
+    { name = "opentelemetry-exporter-jaeger", marker = "extra == 'trace'", specifier = ">=1.21.0" },
+    { name = "opentelemetry-exporter-otlp-proto-grpc", marker = "extra == 'trace'", specifier = ">=1.15.0" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.11.3" },
     { name = "pydantic-settings", specifier = ">=2.9.1" },
     { name = "redis", specifier = ">=6.4.0" },
     { name = "ruamel-yaml", specifier = ">=0.18.10" },
     { name = "ruff", specifier = ">=0.12.4" },
 ]
+provides-extras = ["trace"]
 
 [[package]]
 name = "googleapis-common-protos"

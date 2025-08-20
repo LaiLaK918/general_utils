@@ -3,11 +3,17 @@ import json
 from functools import wraps
 from typing import Optional
 
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.trace import get_tracer_provider, set_tracer_provider
+try:
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    from opentelemetry.trace import get_tracer_provider, set_tracer_provider
+
+    OTEL_AVAILABLE = True
+except ImportError:
+    OTEL_AVAILABLE = False
+
 from pydantic import BaseModel
 
 
@@ -29,19 +35,63 @@ def _serialize_to_json(data) -> str:
 
 
 class OTLPExporterSingleton:
-    _instance: Optional[OTLPSpanExporter] = None
+    """Singleton class for OTLP span exporter."""
+
+    _instance: Optional["OTLPSpanExporter"] = None
 
     @classmethod
-    def get_instance(cls, endpoint: str = "grpc://otel-collector:4137", insecure: bool = False) -> OTLPSpanExporter:
+    def get_instance(
+        cls, endpoint: str = "grpc://otel-collector:4137", insecure: bool = False
+    ) -> "OTLPSpanExporter":
+        """Get singleton instance of OTLP span exporter.
+
+        Args:
+            endpoint: OTLP endpoint URL
+            insecure: Whether to use insecure connection
+
+        Returns:
+            OTLPSpanExporter: The singleton instance
+
+        Raises:
+            ImportError: If OpenTelemetry is not available
+            ValueError: If endpoint format is invalid
+        """
+        if not OTEL_AVAILABLE:
+            raise ImportError(
+                "OpenTelemetry is not available. Install with: pip install general-utils[trace]"
+            )
+
         if cls._instance is None:
-            if 'grpc://' not in endpoint:
+            if "grpc://" not in endpoint:
                 raise ValueError("OTLP endpoint must start with 'grpc://'")
             cls._instance = OTLPSpanExporter(endpoint=endpoint, insecure=insecure)
         return cls._instance
 
 
 class SpanProcessor:
-    def __init__(self, service_name: str, oltp_endpoint: str = "grpc://otel-collector:4137", oltp_insecure: bool = False):
+    """OpenTelemetry span processor for tracing."""
+
+    def __init__(
+        self,
+        service_name: str,
+        oltp_endpoint: str = "grpc://otel-collector:4137",
+        oltp_insecure: bool = False,
+    ):
+        """Initialize span processor with OpenTelemetry configuration.
+
+        Args:
+            service_name: Name of the service
+            oltp_endpoint: OTLP endpoint URL
+            oltp_insecure: Whether to use insecure connection
+
+        Raises:
+            ImportError: If OpenTelemetry is not available
+        """
+        if not OTEL_AVAILABLE:
+            raise ImportError(
+                "OpenTelemetry is not available. Install with: pip install general-utils[trace]"
+            )
+
         self.service_name = service_name
         self.oltp_endpoint = oltp_endpoint
         self.oltp_insecure = oltp_insecure
@@ -52,7 +102,8 @@ class SpanProcessor:
 
         # Get singleton exporter
         exporter = OTLPExporterSingleton.get_instance(
-            endpoint=self.oltp_endpoint, insecure=self.oltp_insecure)
+            endpoint=self.oltp_endpoint, insecure=self.oltp_insecure
+        )
 
         # Add batch span processor
         span_processor = BatchSpanProcessor(exporter)
@@ -68,7 +119,15 @@ class SpanProcessor:
 
         Returns:
             Callable: The decorated function with tracing capabilities.
+
+        Raises:
+            ImportError: If OpenTelemetry is not available
+
         """
+        if not OTEL_AVAILABLE:
+            raise ImportError(
+                "OpenTelemetry is not available. Install with: pip install general-utils[trace]"
+            )
 
         def decorator(func):
             tracer = get_tracer_provider().get_tracer(self.service_name)
@@ -80,15 +139,24 @@ class SpanProcessor:
                     with tracer.start_as_current_span(span_name) as span:
                         # Log input data
                         input_data = {"args": args, "kwargs": kwargs}
-                        span.set_attribute(f"{prefix}.input", _serialize_to_json(input_data))
+                        span.set_attribute(
+                            f"{prefix}.input", _serialize_to_json(input_data)
+                        )
 
                         try:
                             result = await func(*args, **kwargs)
-                            span.set_attribute(f"{prefix}.output", _serialize_to_json(result))
+                            span.set_attribute(
+                                f"{prefix}.output", _serialize_to_json(result)
+                            )
                             return result
                         except Exception as e:
-                            error_data = {"error": str(e), "error_type": type(e).__name__}
-                            span.set_attribute(f"{prefix}.output", _serialize_to_json(error_data))
+                            error_data = {
+                                "error": str(e),
+                                "error_type": type(e).__name__,
+                            }
+                            span.set_attribute(
+                                f"{prefix}.output", _serialize_to_json(error_data)
+                            )
                             raise
 
             else:
@@ -98,18 +166,26 @@ class SpanProcessor:
                     with tracer.start_as_current_span(span_name) as span:
                         # Log input data
                         input_data = {"args": args, "kwargs": kwargs}
-                        span.set_attribute(f"{prefix}.input", _serialize_to_json(input_data))
+                        span.set_attribute(
+                            f"{prefix}.input", _serialize_to_json(input_data)
+                        )
 
                         try:
                             result = func(*args, **kwargs)
-                            span.set_attribute(f"{prefix}.output", _serialize_to_json(result))
+                            span.set_attribute(
+                                f"{prefix}.output", _serialize_to_json(result)
+                            )
                             return result
                         except Exception as e:
-                            error_data = {"error": str(e), "error_type": type(e).__name__}
-                            span.set_attribute(f"{prefix}.output", _serialize_to_json(error_data))
+                            error_data = {
+                                "error": str(e),
+                                "error_type": type(e).__name__,
+                            }
+                            span.set_attribute(
+                                f"{prefix}.output", _serialize_to_json(error_data)
+                            )
                             raise
 
             return wrapper
 
         return decorator
-
