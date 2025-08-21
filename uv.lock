@@ -182,21 +182,23 @@ wheels = [
 
 [[package]]
 name = "general-utils"
-version = "1.0.1"
+version = "1.0.2"
 source = { editable = "." }
 dependencies = [
     { name = "argon2-cffi" },
-    { name = "fastapi" },
     { name = "loguru" },
     { name = "memoization" },
     { name = "pydantic", extra = ["email"] },
     { name = "pydantic-settings" },
-    { name = "redis" },
     { name = "ruamel-yaml" },
     { name = "ruff" },
 ]
 
 [package.optional-dependencies]
+redis-cache-fastapi = [
+    { name = "fastapi" },
+    { name = "redis" },
+]
 trace = [
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
 ]
@@ -204,17 +206,17 @@ trace = [
 [package.metadata]
 requires-dist = [
     { name = "argon2-cffi", specifier = ">=23.1.0" },
-    { name = "fastapi", specifier = ">=0.116.1" },
+    { name = "fastapi", marker = "extra == 'redis-cache-fastapi'", specifier = ">=0.116.1" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "memoization", specifier = ">=0.4.0" },
     { name = "opentelemetry-exporter-otlp-proto-grpc", marker = "extra == 'trace'", specifier = ">=1.15.0" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.11.3" },
     { name = "pydantic-settings", specifier = ">=2.9.1" },
-    { name = "redis", specifier = ">=6.4.0" },
+    { name = "redis", marker = "extra == 'redis-cache-fastapi'", specifier = ">=6.4.0" },
     { name = "ruamel-yaml", specifier = ">=0.18.10" },
     { name = "ruff", specifier = ">=0.12.4" },
 ]
-provides-extras = ["trace"]
+provides-extras = ["trace", "redis-cache-fastapi"]
 
 [[package]]
 name = "googleapis-common-protos"
