@@ -32,29 +32,28 @@ def _serialize_to_json(data) -> str:
     """
 
     def _default_serializer(obj: Any) -> Any:
+        if isinstance(data, BaseModel):
+            return data.model_dump_json()
         if fallback_serializer is not None:
             return fallback_serializer(obj)
         raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
     fallback_serializer = getattr(_serialize_to_json, "_fallback_serializer", None)
 
-    if isinstance(data, BaseModel):
-        body_str = data.model_dump_json()
-    else:
-        try:
+    try:
+        body_str = json.dumps(
+            data, sort_keys=True, ensure_ascii=False, default=_default_serializer
+        )
+    except TypeError as e:
+        if fallback_serializer is not None:
             body_str = json.dumps(
-                data, sort_keys=True, ensure_ascii=False, default=_default_serializer
+                data,
+                sort_keys=True,
+                ensure_ascii=False,
+                default=fallback_serializer,
             )
-        except TypeError as e:
-            if fallback_serializer is not None:
-                body_str = json.dumps(
-                    data,
-                    sort_keys=True,
-                    ensure_ascii=False,
-                    default=fallback_serializer,
-                )
-            else:
-                raise e
+        else:
+            raise e
     return body_str
 
 
