@@ -177,13 +177,21 @@ class SpanProcessor:
         span_processor = BatchSpanProcessor(exporter)
         get_tracer_provider().add_span_processor(span_processor)
 
-    def log_trace(self, span_name: str, prefix: str = "langfuse.observation"):
+    def log_trace(
+        self,
+        span_name: str,
+        prefix: str = "langfuse.observation",
+        log_input: bool = True,
+        log_output: bool = True,
+    ):
         """
         Decorator to trace a function with OpenTelemetry and log input/output.
 
         Args:
             span_name (str): The name of the span to create.
             prefix (str): Attribute prefix for input/output logging.
+            log_input (bool): Whether to log function input arguments. Default True.
+            log_output (bool): Whether to log function output/return value. Default True.
 
         Returns:
             Callable: The decorated function with tracing capabilities.
@@ -205,26 +213,28 @@ class SpanProcessor:
                 @wraps(func)
                 async def wrapper(*args, **kwargs):
                     with tracer.start_as_current_span(span_name) as span:
-                        # Log input data
-                        input_data = {"args": args, "kwargs": kwargs}
-                        span.set_attribute(
-                            f"{prefix}.input", _serialize_to_json(input_data)
-                        )
+                        if log_input:
+                            input_data = {"args": args, "kwargs": kwargs}
+                            span.set_attribute(
+                                f"{prefix}.input", _serialize_to_json(input_data)
+                            )
 
                         try:
                             result = await func(*args, **kwargs)
-                            span.set_attribute(
-                                f"{prefix}.output", _serialize_to_json(result)
-                            )
+                            if log_output:
+                                span.set_attribute(
+                                    f"{prefix}.output", _serialize_to_json(result)
+                                )
                             return result
                         except Exception as e:
                             error_data = {
                                 "error": str(e),
                                 "error_type": type(e).__name__,
                             }
-                            span.set_attribute(
-                                f"{prefix}.output", _serialize_to_json(error_data)
-                            )
+                            if log_output:
+                                span.set_attribute(
+                                    f"{prefix}.output", _serialize_to_json(error_data)
+                                )
                             raise
 
             else:
@@ -232,26 +242,28 @@ class SpanProcessor:
                 @wraps(func)
                 def wrapper(*args, **kwargs):
                     with tracer.start_as_current_span(span_name) as span:
-                        # Log input data
-                        input_data = {"args": args, "kwargs": kwargs}
-                        span.set_attribute(
-                            f"{prefix}.input", _serialize_to_json(input_data)
-                        )
+                        if log_input:
+                            input_data = {"args": args, "kwargs": kwargs}
+                            span.set_attribute(
+                                f"{prefix}.input", _serialize_to_json(input_data)
+                            )
 
                         try:
                             result = func(*args, **kwargs)
-                            span.set_attribute(
-                                f"{prefix}.output", _serialize_to_json(result)
-                            )
+                            if log_output:
+                                span.set_attribute(
+                                    f"{prefix}.output", _serialize_to_json(result)
+                                )
                             return result
                         except Exception as e:
                             error_data = {
                                 "error": str(e),
                                 "error_type": type(e).__name__,
                             }
-                            span.set_attribute(
-                                f"{prefix}.output", _serialize_to_json(error_data)
-                            )
+                            if log_output:
+                                span.set_attribute(
+                                    f"{prefix}.output", _serialize_to_json(error_data)
+                                )
                             raise
 
             return wrapper
