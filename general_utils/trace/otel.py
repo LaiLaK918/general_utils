@@ -1,8 +1,7 @@
 import asyncio
 import json
-from abc import ABC
 from functools import wraps
-from typing import Optional
+from typing import Any, Callable, Optional
 
 try:
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -15,27 +14,59 @@ try:
 except ImportError:
     OTEL_AVAILABLE = False
 
+
 from pydantic import BaseModel
 
 
 def _serialize_to_json(data) -> str:
     """
-    Safely serialize data to JSON string.
+    Safely serialize data to JSON string, with optional fallback for custom types.
 
     Args:
         data: The data to serialize.
+        fallback_serializer (Optional[Callable]): Function to handle non-serializable types.
 
     Returns:
         str: JSON string representation of the data.
-        
+
     """
+
+    def _default_serializer(obj: Any) -> Any:
+        if fallback_serializer is not None:
+            return fallback_serializer(obj)
+        raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+    fallback_serializer = getattr(_serialize_to_json, "_fallback_serializer", None)
+
     if isinstance(data, BaseModel):
         body_str = data.model_dump_json()
-    elif isinstance(data, ABC):
-        body_str = json.dumps(data.__dict__, sort_keys=True, ensure_ascii=False)
     else:
-        body_str = json.dumps(data, sort_keys=True, ensure_ascii=False)
+        try:
+            body_str = json.dumps(
+                data, sort_keys=True, ensure_ascii=False, default=_default_serializer
+            )
+        except TypeError as e:
+            if fallback_serializer is not None:
+                body_str = json.dumps(
+                    data,
+                    sort_keys=True,
+                    ensure_ascii=False,
+                    default=fallback_serializer,
+                )
+            else:
+                raise e
     return body_str
+
+
+def set_serialize_fallback(fallback_func: Callable[[Any], dict]) -> None:
+    """
+    Set a fallback serializer function for _serialize_to_json.
+
+    Args:
+        fallback_func (Callable): Function to handle non-serializable types.
+
+    """
+    _serialize_to_json._fallback_serializer = fallback_func
 
 
 class OTLPExporterSingleton:
@@ -60,7 +91,7 @@ class OTLPExporterSingleton:
         Raises:
             ImportError: If OpenTelemetry is not available
             ValueError: If endpoint format is invalid
-            
+
         """
         if not OTEL_AVAILABLE:
             raise ImportError(
@@ -75,13 +106,23 @@ class OTLPExporterSingleton:
 
 
 class SpanProcessor:
-    """OpenTelemetry span processor for tracing."""
+    """
+    OpenTelemetry span processor for tracing.
+
+    Args:
+        service_name: Name of the service
+        oltp_endpoint: OTLP endpoint URL
+        oltp_insecure: Whether to use insecure connection
+        serialize_fallback: Optional callable for custom serialization fallback
+
+    """
 
     def __init__(
         self,
         service_name: str,
         oltp_endpoint: str = "grpc://otel-collector:4137",
         oltp_insecure: bool = False,
+        serialize_fallback: Optional[Callable[[Any], dict]] = None,
     ):
         """
         Initialize span processor with OpenTelemetry configuration.
@@ -90,10 +131,25 @@ class SpanProcessor:
             service_name: Name of the service
             oltp_endpoint: OTLP endpoint URL
             oltp_insecure: Whether to use insecure connection
+            serialize_fallback: Optional callable for custom serialization fallback
 
         Raises:
             ImportError: If OpenTelemetry is not available
-            
+            ValueError: If endpoint format is invalid
+
+        Example:
+            To use a custom serialization fallback, define a function like this:
+
+            def custom_fallback_serializer(obj: Any) -> dict:
+                return {"error": "Unable to serialize", "type": type(obj).__name__}
+
+            Then, pass it to the SpanProcessor:
+
+            processor = SpanProcessor(
+                service_name="my_service",
+                serialize_fallback=custom_fallback_serializer
+            )
+
         """
         if not OTEL_AVAILABLE:
             raise ImportError(
@@ -103,6 +159,10 @@ class SpanProcessor:
         self.service_name = service_name
         self.oltp_endpoint = oltp_endpoint
         self.oltp_insecure = oltp_insecure
+
+        # Support custom serialization fallback from parameter
+        if serialize_fallback:
+            set_serialize_fallback(serialize_fallback)
 
         # Set up resource and tracer provider
         resource = Resource.create({SERVICE_NAME: self.service_name})
