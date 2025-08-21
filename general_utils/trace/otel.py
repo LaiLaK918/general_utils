@@ -1,5 +1,6 @@
 import asyncio
 import json
+from abc import ABC
 from functools import wraps
 from typing import Optional
 
@@ -26,9 +27,12 @@ def _serialize_to_json(data) -> str:
 
     Returns:
         str: JSON string representation of the data.
+        
     """
     if isinstance(data, BaseModel):
         body_str = data.model_dump_json()
+    elif isinstance(data, ABC):
+        body_str = json.dumps(data.__dict__, sort_keys=True, ensure_ascii=False)
     else:
         body_str = json.dumps(data, sort_keys=True, ensure_ascii=False)
     return body_str
@@ -43,7 +47,8 @@ class OTLPExporterSingleton:
     def get_instance(
         cls, endpoint: str = "grpc://otel-collector:4137", insecure: bool = False
     ) -> "OTLPSpanExporter":
-        """Get singleton instance of OTLP span exporter.
+        """
+        Get singleton instance of OTLP span exporter.
 
         Args:
             endpoint: OTLP endpoint URL
@@ -55,6 +60,7 @@ class OTLPExporterSingleton:
         Raises:
             ImportError: If OpenTelemetry is not available
             ValueError: If endpoint format is invalid
+            
         """
         if not OTEL_AVAILABLE:
             raise ImportError(
@@ -77,7 +83,8 @@ class SpanProcessor:
         oltp_endpoint: str = "grpc://otel-collector:4137",
         oltp_insecure: bool = False,
     ):
-        """Initialize span processor with OpenTelemetry configuration.
+        """
+        Initialize span processor with OpenTelemetry configuration.
 
         Args:
             service_name: Name of the service
@@ -86,6 +93,7 @@ class SpanProcessor:
 
         Raises:
             ImportError: If OpenTelemetry is not available
+            
         """
         if not OTEL_AVAILABLE:
             raise ImportError(
