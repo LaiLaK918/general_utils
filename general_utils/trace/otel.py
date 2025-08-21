@@ -14,8 +14,11 @@ try:
 except ImportError:
     OTEL_AVAILABLE = False
 
-
 from pydantic import BaseModel
+
+from ..utils.log_common import build_logger
+
+logger = build_logger(__name__)
 
 
 def _serialize_to_json(data) -> str:
@@ -53,6 +56,7 @@ def _serialize_to_json(data) -> str:
                 default=fallback_serializer,
             )
         else:
+            logger.error(f"Failed to serialize data: {data}")
             raise e
     return body_str
 
