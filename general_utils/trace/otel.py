@@ -1,7 +1,6 @@
 import asyncio
-import json
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 try:
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -21,44 +20,60 @@ from ..utils.log_common import build_logger
 logger = build_logger(__name__)
 
 
-def _serialize_to_json(data) -> str:
+def _serialize_to_json(data) -> Dict[str, Any]:
     """
-    Safely serialize data to JSON string, with optional fallback for custom types.
+    Convert arbitrary input into a JSON-serializable dictionary.
+
+    The function guarantees a dict return type. If the underlying converted
+    representation is already a dict, it is returned (with keys coerced to str).
+    Otherwise the converted value is wrapped under the key "value".
+
+    This keeps a uniform shape for downstream consumers that expect a mapping.
 
     Args:
-        data: The data to serialize.
-        fallback_serializer (Optional[Callable]): Function to handle non-serializable types.
+        data: Arbitrary data to convert.
 
     Returns:
-        str: JSON string representation of the data.
+        dict: JSON-serializable dictionary representation.
 
     """
-
-    def _default_serializer(obj: Any) -> Any:
-        if isinstance(data, BaseModel):
-            return data.model_dump_json()
-        if fallback_serializer is not None:
-            return fallback_serializer(obj)
-        raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
-
     fallback_serializer = getattr(_serialize_to_json, "_fallback_serializer", None)
 
-    try:
-        body_str = json.dumps(
-            data, sort_keys=True, ensure_ascii=False, default=_default_serializer
-        )
-    except TypeError as e:
+    def convert(obj: Any) -> Any:
+        if obj is None or isinstance(obj, str | int | float | bool):
+            return obj
+        if isinstance(obj, BaseModel):
+            return obj.model_dump(mode="json")
+        if isinstance(obj, dict):
+            return {str(k): convert(v) for k, v in obj.items()}
+        if isinstance(obj, list | tuple | set | frozenset):
+            return [convert(v) for v in obj]
+        if isinstance(obj, bytes | bytearray):
+            try:
+                return obj.decode("utf-8")
+            except Exception:  # pragma: no cover
+                return repr(obj)
+        if isinstance(obj, Exception):
+            return {"error": str(obj), "error_type": type(obj).__name__}
+        if asyncio.iscoroutine(obj) or hasattr(obj, "__await__"):
+            return f"<coroutine {obj.__class__.__name__}>"
+        if hasattr(obj, "__iter__"):
+            try:
+                return [convert(v) for v in obj]
+            except Exception:  # pragma: no cover
+                pass
         if fallback_serializer is not None:
-            body_str = json.dumps(
-                data,
-                sort_keys=True,
-                ensure_ascii=False,
-                default=fallback_serializer,
-            )
-        else:
-            logger.error(f"Failed to serialize data: {data}")
-            raise e
-    return body_str
+            try:
+                return convert(fallback_serializer(obj))
+            except Exception:  # pragma: no cover
+                pass
+        return repr(obj)
+
+    converted = convert(data)
+    if isinstance(converted, dict):
+        # Ensure all keys are strings (JSON requirement)
+        return {str(k): v for k, v in converted.items()}
+    return {"value": converted}
 
 
 def set_serialize_fallback(fallback_func: Callable[[Any], dict]) -> None:
