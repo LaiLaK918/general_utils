@@ -25,6 +25,11 @@ trace = [
 redis-cache-fastapi = [    
     "redis>=6.4.0",
     "fastapi>=0.116.1",
+    "opentelemetry-sdk>=1.36.0",
+    "opentelemetry-api>=1.36.0",
+    "opentelemetry-exporter-jaeger>=1.21.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.15.0",
+    "opentelemetry-instrumentation-system-metrics>=0.57b0",
 ]
 
 [tool.ruff]

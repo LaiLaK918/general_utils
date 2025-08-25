@@ -16,6 +16,7 @@ Composable Python utilities for everyday backend work: Argon2 password helpers, 
 - Safe environment variable accessor that validates presence & non‑empty values.
 - Lightweight, no framework lock‑in—import only what you need.
 - OpenTelemetry tracing support for instrumenting code with spans.
+- OpenTelemetry metrics support for exporting application metrics.
 
 ## 🧩 Install
 
@@ -42,6 +43,7 @@ uv add git+https://github.com/LaiLaK918/general-utils.git
 | `general_utils.utils.timing`          | Execution time decorators (sync & async)               |
 | `general_utils.utils.env`             | Strict environment variable retrieval                  |
 | `general_utils.trace.otel`            | OpenTelemetry tracing setup                             |
+| `general_utils.metric.otel`           | OpenTelemetry metrics setup                             |
 
 ## 🔐 Auth Helpers
 
@@ -164,6 +166,17 @@ tracer = OpenTelemetryTracer(
 def example_function(x, y):
     return x + y
 result = example_function(5, 10)
+```
+
+## Opentelemetry Metric
+
+```python
+from general_utils.metric.otel import setup_metrics
+
+setup_metrics(
+    service_name="my-service",
+    otlp_endpoint="grpc://otel-collector:443"
+)
 ```
 
 ## 🌱 Environment Variables
