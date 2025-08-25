@@ -26,6 +26,9 @@ redis-cache-fastapi = [
     "redis>=6.4.0",
     "fastapi>=0.116.1",
 ]
+metrics = [
+    "opentelemetry-instrumentation-system-metrics>=0.57b0",
+]
 
 [tool.ruff]
 lint.select = [
