@@ -7,6 +7,8 @@ import redis
 from fastapi import Request
 from pydantic import BaseModel
 
+from ..utils.serialization import _serialize_to_json
+
 
 class RedisCache:
     def __init__(self, redis_url: str, prefix: str = "cache", default_expire: int = 60):
@@ -151,7 +153,9 @@ class RedisCache:
 
                 result = await func(*args, **kwargs)
                 await self.redis.setex(
-                    cache_key, expire_seconds or self.default_expire, json.dumps(result)
+                    cache_key,
+                    expire_seconds or self.default_expire,
+                    _serialize_to_json(result),
                 )
                 return result
 
