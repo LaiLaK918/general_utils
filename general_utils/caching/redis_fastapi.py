@@ -152,7 +152,7 @@ class RedisCache:
                     return json.loads(await cached)
 
                 result = await func(*args, **kwargs)
-                await self.redis.setex(
+                self.redis.setex(
                     cache_key,
                     expire_seconds or self.default_expire,
                     _serialize_to_json(result),
