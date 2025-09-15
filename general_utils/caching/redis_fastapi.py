@@ -145,9 +145,9 @@ class RedisCache:
 
                 cache_key = self._build_key(request, key, body=body_data)
 
-                cached = await self.redis.get(cache_key)
+                cached = self.redis.get(cache_key)
                 if cached:
-                    return json.loads(cached)
+                    return json.loads(await cached)
 
                 result = await func(*args, **kwargs)
                 await self.redis.setex(
