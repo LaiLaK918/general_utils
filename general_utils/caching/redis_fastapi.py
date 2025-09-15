@@ -78,16 +78,16 @@ class RedisCache:
         self.default_expire = default_expire
         self.redis = None
 
-    def init(self):
+    async def init(self):
         """Initialize Redis connection."""
-        self.redis = redis.from_url(
+        self.redis = redis.asyncio.from_url(
             self.redis_url, encoding="utf-8", decode_responses=True
         )
 
-    def close(self):
+    async def close(self):
         """Close Redis connection."""
         if self.redis:
-            self.redis.close()
+            await self.redis.aclose()
 
     def _hash_body(self, body: Any) -> str:
         """Hash body to create a unique key for POST/PUT."""
@@ -129,7 +129,7 @@ class RedisCache:
             @functools.wraps(func)
             async def wrapper(*args, **kwargs):
                 if not self.redis:
-                    self.init()
+                    await self.init()
                 request: Request = None
                 body_data = None
 
@@ -147,12 +147,12 @@ class RedisCache:
 
                 cache_key = self._build_key(request, key, body=body_data)
 
-                cached = self.redis.get(cache_key)
+                cached = await self.redis.get(cache_key)
                 if cached:
-                    return json.loads(await cached)
+                    return json.loads(cached)
 
                 result = await func(*args, **kwargs)
-                self.redis.setex(
+                await self.redis.setex(
                     cache_key,
                     expire_seconds or self.default_expire,
                     _serialize_to_json(result),
