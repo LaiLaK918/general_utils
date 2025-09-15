@@ -76,16 +76,16 @@ class RedisCache:
         self.default_expire = default_expire
         self.redis = None
 
-    async def init(self):
+    def init(self):
         """Initialize Redis connection."""
         self.redis = redis.from_url(
             self.redis_url, encoding="utf-8", decode_responses=True
         )
 
-    async def close(self):
+    def close(self):
         """Close Redis connection."""
         if self.redis:
-            await self.redis.close()
+            self.redis.close()
 
     def _hash_body(self, body: Any) -> str:
         """Hash body to create a unique key for POST/PUT."""
