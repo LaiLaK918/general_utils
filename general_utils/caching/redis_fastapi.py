@@ -99,7 +99,8 @@ class RedisCache:
         self, request: Request, custom_key: Optional[str] = None, body: Any = None
     ) -> str:
         if custom_key:
-            return f"{self.prefix}:{custom_key}"
+            body_hash = self._hash_body(body)
+            return f"{self.prefix}:{custom_key}:{body_hash}"
 
         # If POST/PUT/PATCH and has body → hash into key
         if request.method in {"POST", "PUT", "PATCH"} and body is not None:
