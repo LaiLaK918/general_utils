@@ -126,6 +126,8 @@ class RedisCache:
         def decorator(func: Callable):
             @functools.wraps(func)
             async def wrapper(*args, **kwargs):
+                if not self.redis:
+                    self.init()
                 request: Request = None
                 body_data = None
 
