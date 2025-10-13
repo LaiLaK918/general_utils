@@ -147,6 +147,7 @@ class SpanProcessor:
         prefix: str = "langfuse.observation",
         log_input: bool = True,
         log_output: bool = True,
+        tag_names: str | list[str] = []
     ):
         """
         Decorator to trace a function with OpenTelemetry and log input/output.
@@ -169,6 +170,10 @@ class SpanProcessor:
                 "OpenTelemetry is not available. Install with: pip install general-utils[trace]"
             )
 
+        if type(tag_names) is str:
+            tag_names = [tag_names]
+
+
         def decorator(func):
             tracer = get_tracer_provider().get_tracer(self.service_name)
 
@@ -182,6 +187,10 @@ class SpanProcessor:
                             span.set_attribute(
                                 f"{prefix}.input", _serialize_to_json(input_data)
                             )
+
+                        for tag in tag_names:
+                            if tag in kwargs:
+                                span.set_attribute(f"tag.{tag}", _serialize_to_json(kwargs[tag]))
 
                         try:
                             result = await func(*args, **kwargs)
@@ -211,6 +220,10 @@ class SpanProcessor:
                             span.set_attribute(
                                 f"{prefix}.input", _serialize_to_json(input_data)
                             )
+
+                        for tag in tag_names:
+                            if tag in kwargs:
+                                span.set_attribute(f"tag.{tag}", _serialize_to_json(kwargs[tag]))
 
                         try:
                             result = func(*args, **kwargs)
