@@ -58,7 +58,7 @@ class SpanProcessor:
         span_processor = BatchSpanProcessor(exporter)
         get_tracer_provider().add_span_processor(span_processor)
 
-    def log_trace(self, span_name: str, prefix: str = "langfuse.observation"):
+    def log_trace(self, span_name: str, prefix: str = "langfuse.observation", tag_names: str | list[str] = []):
         """
         Decorator to trace a function with OpenTelemetry and log input/output.
 
@@ -69,6 +69,10 @@ class SpanProcessor:
         Returns:
             Callable: The decorated function with tracing capabilities.
         """
+
+        if type(tag_names) is str:
+            tag_names = [tag_names]
+
 
         def decorator(func):
             tracer = get_tracer_provider().get_tracer(self.service_name)
@@ -81,6 +85,10 @@ class SpanProcessor:
                         # Log input data
                         input_data = {"args": args, "kwargs": kwargs}
                         span.set_attribute(f"{prefix}.input", _serialize_to_json(input_data))
+
+                        for tag in tag_names:
+                            if tag in kwargs:
+                                span.set_attribute(f"tag.{tag}", _serialize_to_json(kwargs[tag]))
 
                         try:
                             result = await func(*args, **kwargs)
@@ -99,6 +107,10 @@ class SpanProcessor:
                         # Log input data
                         input_data = {"args": args, "kwargs": kwargs}
                         span.set_attribute(f"{prefix}.input", _serialize_to_json(input_data))
+
+                        for tag in tag_names:
+                            if tag in kwargs:
+                                span.set_attribute(f"tag.{tag}", _serialize_to_json(kwargs[tag]))
 
                         try:
                             result = func(*args, **kwargs)
