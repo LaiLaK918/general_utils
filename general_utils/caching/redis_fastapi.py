@@ -7,6 +7,8 @@ import redis
 from fastapi import Request
 from pydantic import BaseModel
 
+from ..utils.serialization import _serialize_to_json
+
 
 class RedisCache:
     def __init__(self, redis_url: str, prefix: str = "cache", default_expire: int = 60):
@@ -78,14 +80,14 @@ class RedisCache:
 
     async def init(self):
         """Initialize Redis connection."""
-        self.redis = redis.from_url(
+        self.redis = redis.asyncio.from_url(
             self.redis_url, encoding="utf-8", decode_responses=True
         )
 
     async def close(self):
         """Close Redis connection."""
         if self.redis:
-            await self.redis.close()
+            await self.redis.aclose()
 
     def _hash_body(self, body: Any) -> str:
         """Hash body to create a unique key for POST/PUT."""
@@ -99,7 +101,8 @@ class RedisCache:
         self, request: Request, custom_key: Optional[str] = None, body: Any = None
     ) -> str:
         if custom_key:
-            return f"{self.prefix}:{custom_key}"
+            body_hash = self._hash_body(body)
+            return f"{self.prefix}:{custom_key}:{body_hash}"
 
         # If POST/PUT/PATCH and has body → hash into key
         if request.method in {"POST", "PUT", "PATCH"} and body is not None:
@@ -125,6 +128,8 @@ class RedisCache:
         def decorator(func: Callable):
             @functools.wraps(func)
             async def wrapper(*args, **kwargs):
+                if not self.redis:
+                    await self.init()
                 request: Request = None
                 body_data = None
 
@@ -148,7 +153,9 @@ class RedisCache:
 
                 result = await func(*args, **kwargs)
                 await self.redis.setex(
-                    cache_key, expire_seconds or self.default_expire, json.dumps(result)
+                    cache_key,
+                    expire_seconds or self.default_expire,
+                    _serialize_to_json(result),
                 )
                 return result
 

@@ -176,15 +176,33 @@ def example_function(x, y):
 result = example_function(5, y=10)
 ```
 
-## Opentelemetry Metric
+## Opentelemetry Metric with FastAPI lifespan
 
 ```python
+from configs.settings import settings
 from general_utils.metric.otel import setup_metrics
 
-setup_metrics(
-    service_name="my-service",
-    otlp_endpoint="grpc://otel-collector:443"
-)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan context manager.
+
+    Handles startup and shutdown events for the FastAPI application.
+
+    Args:
+        app: The FastAPI application instance
+    """
+    # Setup OpenTelemetry metrics
+	logger.info("Setting up OpenTelemetry metrics")
+    setup_metrics(settings.otlp_service_name, settings.otlp_endpoint)
+
+    yield
+
+    # Shutdown
+    logger.info("FastAPI application shutting down")
+
+app = FastAPI(lifespan=lifespan)
 ```
 
 ## 🌱 Environment Variables

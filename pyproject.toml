@@ -1,6 +1,6 @@
 [project]
 name = "general_utils"
-version = "1.0.0"
+version = "1.0.3"
 description = "Python Repository with general utilities"
 authors = [
     { name = "Hoang", email = "hoanglexuan5@gmail.com" },
@@ -16,13 +16,22 @@ dependencies = [
     "pydantic-settings>=2.9.1",
     "ruamel-yaml>=0.18.10",
     "ruff>=0.12.4",
+]
+
+[project.optional-dependencies]
+trace = [
+    "opentelemetry-exporter-otlp-proto-grpc>=1.15.0",
+]
+redis-cache-fastapi = [    
     "redis>=6.4.0",
     "fastapi>=0.116.1",
-    "opentelemetry-sdk>=1.36.0",
-    "opentelemetry-api>=1.36.0",
-    "opentelemetry-exporter-jaeger>=1.21.0",
-    "opentelemetry-exporter-otlp-proto-grpc>=1.15.0",
+]
+metrics = [
     "opentelemetry-instrumentation-system-metrics>=0.57b0",
+]
+milvus-cache = [
+    "openai>=1.101.0",
+    "pymilvus>=2.6.0",
 ]
 
 [tool.ruff]
