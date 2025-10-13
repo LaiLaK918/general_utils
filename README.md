@@ -155,17 +155,25 @@ Logs include module path, file location, line number, and elapsed time.
 ## OpenTelemetry Tracing
 
 ```python
-from general_utils.trace.otel import OpenTelemetryTracer
+from general_utils.trace import SpanProcessor
 
-tracer = OpenTelemetryTracer(
+tracer = SpanProcessor(
 	service_name="my-service", 
 	oltp_endpoint="http://localhost:4317", 
-	oltp_insecure=True)
+	oltp_insecure=False)
 
-@tracer.start_span("example_span")
+# Normal trace
+@tracer.log_trace("example_function")
 def example_function(x, y):
     return x + y
 result = example_function(5, 10)
+
+# Trace with tag
+# Normal trace
+@tracer.log_trace("example_function", tag_names="y")
+def example_function(x, y):
+    return x + y
+result = example_function(5, y=10)
 ```
 
 ## Opentelemetry Metric
