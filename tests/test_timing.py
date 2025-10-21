@@ -1,43 +1,45 @@
 import asyncio
-import time
 
-from general_utils.utils.log_common import build_logger
 from general_utils.utils.timing import measure_time
 
 
-# ----- Sync example -----
-@measure_time
-def slow_sync():  # noqa: D103
-    time.sleep(1.2)
-    return "sync done"
+def my_callback(func, args, kwargs, elapsed):  # noqa: D103
+    print(f"[CALLBACK] {func.__name__} = {elapsed:.3f}s")
 
 
-# ----- Async example -----
-@measure_time(is_async=True)
-async def slow_async():  # noqa: D103
-    await asyncio.sleep(1.0)
-    return "async done"
+def my_metric_collector(name, elapsed):  # noqa: D103
+    print(f"[METRIC] {name} -> {elapsed:.3f}s")
 
 
-# ----- Custom logger example -----
-custom_logger = build_logger("timing_custom")
+@measure_time(
+    threshold_warning=0.5,
+    on_complete_callback=my_callback,
+    metric_collector=my_metric_collector,
+    tag="sync",
+    is_return_measured_time=True,
+)
+def slow_task(x):  # noqa: D103
+    import time
+
+    time.sleep(x)
+    return x * 2
 
 
-@measure_time(logger=custom_logger, level="debug")
-def quick_sync():  # noqa: D103
-    time.sleep(0.2)
-    return "quick done"
+@measure_time(
+    is_async=True,
+    threshold_warning=0.5,
+    tag="async",
+    metric_collector=my_metric_collector,
+    is_return_measured_time=True,
+)
+async def slow_async(x):  # noqa: D103
+    await asyncio.sleep(x)
+    return x * 3
 
 
 async def main():  # noqa: D103
-    print("→ Running sync test")
-    print(slow_sync())
-
-    print("→ Running async test")
-    print(await slow_async())
-
-    print("→ Running custom logger test")
-    print(quick_sync())
+    print(slow_task(0.7))
+    print(await slow_async(1.0))
 
 
 if __name__ == "__main__":

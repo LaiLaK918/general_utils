@@ -4,7 +4,6 @@ import os
 import shutil
 import threading
 import time
-from enum import Enum
 from pathlib import Path
 from typing import Dict, Optional, Union
 
@@ -12,17 +11,7 @@ import loguru
 import loguru._logger
 from memoization import CachingAlgorithmFlag, cached
 
-
-class LogLevel(Enum):
-    """Enum for log levels to ensure type safety."""
-
-    TRACE = 5
-    DEBUG = 10
-    INFO = 20
-    SUCCESS = 25
-    WARNING = 30
-    ERROR = 40
-    CRITICAL = 50
+from ..schemas.logging import LogLevel
 
 
 class LogRotationConfig:
