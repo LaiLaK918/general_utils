@@ -1,68 +1,418 @@
+import gzip
 import logging
 import os
+import shutil
+import threading
 import time
+from enum import Enum
+from pathlib import Path
+from typing import Dict, Optional, Union
 
 import loguru
 import loguru._logger
 from memoization import CachingAlgorithmFlag, cached
 
-from ..config.config import Configs
+
+class LogLevel(Enum):
+    """Enum for log levels to ensure type safety."""
+
+    TRACE = 5
+    DEBUG = 10
+    INFO = 20
+    SUCCESS = 25
+    WARNING = 30
+    ERROR = 40
+    CRITICAL = 50
+
+
+class LogRotationConfig:
+    """Configuration class for log rotation settings."""
+
+    def __init__(
+        self,
+        max_file_size: str = "10 MB",
+        backup_count: int = 5,
+        compression: str = "gz",
+        rotation_time: Optional[str] = None,
+    ):
+        """
+        Initialize log rotation configuration.
+
+        Args:
+            max_file_size: Maximum size before rotation (e.g., "10 MB", "50 KB")
+            backup_count: Number of backup files to keep
+            compression: Compression format for old logs ("gz", "zip", or None)
+            rotation_time: Time-based rotation (e.g., "daily", "weekly", "1 hour")
+
+        """
+        self.max_file_size = max_file_size
+        self.backup_count = backup_count
+        self.compression = compression
+        self.rotation_time = rotation_time
+
+
+class LogManager:
+    """
+    Thread-safe singleton log manager for centralized logging configuration.
+
+    This class provides a centralized way to manage loggers across the application
+    with consistent configuration, rotation, and filtering.
+    """
+
+    _instance = None
+    _lock = threading.Lock()
+    _loggers: Dict[str, loguru._logger.Logger] = {}
+
+    def __new__(cls):
+        """Ensure singleton pattern with thread safety."""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        """Initialize the log manager if not already initialized."""
+        if not hasattr(self, "_initialized"):
+            self._initialized = True
+
+    def _setup_log_directory(self, log_path: Path) -> Path:
+        """
+        Ensure log directory exists and is writable.
+
+        Args:
+            log_path: Desired log directory path
+
+        Returns:
+            Path: Validated log directory path (or fallback)
+
+        """
+        try:
+            log_path.mkdir(parents=True, exist_ok=True)
+
+            # Test write permission
+            test_file = log_path / ".write_test"
+            test_file.touch()
+            test_file.unlink()
+
+            return log_path
+
+        except (OSError, PermissionError):
+            # Fallback to temporary directory
+            import tempfile
+
+            fallback_path = Path(tempfile.gettempdir()) / "general_utils_logs"
+            fallback_path.mkdir(parents=True, exist_ok=True)
+            print(
+                f"Warning: Cannot write to {log_path}, using fallback: {fallback_path}"
+            )
+            return fallback_path
+
+    def _compress_log_file(self, file_path: Path, compression: str = "gz") -> None:
+        """
+        Compress log file to save space.
+
+        Args:
+            file_path: Path to the file to compress
+            compression: Compression format ("gz" or "zip")
+
+        """
+        try:
+            if compression == "gz":
+                with open(file_path, "rb") as f_in:
+                    with gzip.open(f"{file_path}.gz", "wb") as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                file_path.unlink()
+            elif compression == "zip":
+                import zipfile
+
+                with zipfile.ZipFile(
+                    f"{file_path}.zip", "w", zipfile.ZIP_DEFLATED
+                ) as zipf:
+                    zipf.write(file_path, file_path.name)
+                file_path.unlink()
+        except Exception as e:
+            print(f"Warning: Failed to compress {file_path}: {e}")
+
+    def _log_filter(self, record: dict, log_verbose: bool = True) -> bool:
+        """
+        Enhanced log filtering with better error handling.
+
+        Args:
+            record: Log record dictionary
+            log_verbose: Whether to show debug logs and full error traces
+
+        Returns:
+            bool: True if the record should be logged, False otherwise
+
+        """
+        try:
+            # Hide debug logs if verbose mode is disabled
+            if record["level"].no <= LogLevel.DEBUG.value and not log_verbose:
+                return False
+
+            # Handle exception display based on verbose mode
+            if record["level"].no == LogLevel.ERROR.value and not log_verbose:
+                record["exception"] = None
+
+            return True
+        except (KeyError, AttributeError) as e:
+            # If record is malformed, log it anyway to avoid losing information
+            print(f"Warning: Malformed log record: {e}")
+            return True
+
+
+# Global variables for filter state
+_log_verbose_global = True
+_log_manager_instance = None
 
 
 def _filter_logs(record: dict) -> bool:
-    # hide debug logs if Settings.basic_settings.log_verbose=False
-    if record["level"].no <= 10 and not Configs.basic_config.log_verbose:
-        return False
-    # hide traceback logs if Settings.basic_settings.log_verbose=False
-    if record["level"].no == 40 and not Configs.basic_config.log_verbose:
-        record["exception"] = None
-    return True
-
-
-# By default, each time build_logger is called, a handler is added.
-@cached(max_size=100, algorithm=CachingAlgorithmFlag.LRU)
-def build_logger(log_file: str = "Auto-Pentest"):
     """
-    Build a logger with colorized output and a log file.
+    Legacy filter function for backward compatibility.
 
-    User can set basic_settings.log_verbose=True to output debug logs
-    use logger.exception to log errors with exceptions
+    Args:
+        record: Log record dictionary
+
+    Returns:
+        bool: True if the record should be logged, False otherwise
+
+    """
+    global _log_manager_instance, _log_verbose_global
+    if _log_manager_instance is None:
+        _log_manager_instance = LogManager()
+    return _log_manager_instance._log_filter(record, _log_verbose_global)
+
+
+@cached(max_size=100, algorithm=CachingAlgorithmFlag.LRU)
+def build_logger(
+    log_file: str = "App-Logger",
+    rotation_config: Optional[LogRotationConfig] = None,
+    format_string: Optional[str] = None,
+    level: Union[str, LogLevel] = LogLevel.INFO,
+    log_path: Optional[Union[str, Path]] = None,
+    log_verbose: bool = True,
+) -> loguru._logger.Logger:
+    """
+    Build a logger with enhanced features including rotation and compression.
+
+    This function creates a logger with both console and file output, featuring:
+    - Automatic log rotation based on size or time
+    - Compression of old log files
+    - Configurable formatting
+    - Thread-safe operation
+    - Enhanced error handling
+
+    Args:
+        log_file: Name of the log file (without extension) or full path
+        rotation_config: Configuration for log rotation and compression
+        format_string: Custom format string for log messages
+        level: Minimum log level to capture
+        log_path: Base directory for log files (defaults to ./logs)
+        log_verbose: Whether to show debug logs and full error traces
+
+    Returns:
+        loguru.Logger: Configured logger instance
+
+    Raises:
+        ValueError: If log_file parameter is invalid
+        OSError: If log directory cannot be created or accessed
+
     Example:
         ```python
-        from general_utils.utils.log_common import build_logger
+        from general_utils.utils.log_common import build_logger, LogRotationConfig
+
+        # Basic usage
         logger = build_logger("api")
-        logger.info("<green>some message</green>")
+        logger.info("Application started")
+
+        # With custom rotation and path
+        rotation_config = LogRotationConfig(
+            max_file_size="10 MB",
+            backup_count=5,
+            compression="gz"
+        )
+        logger = build_logger(
+            "detailed_api",
+            rotation_config=rotation_config,
+            log_path="/var/log/myapp",
+            log_verbose=False
+        )
+        logger.info("<green>Enhanced logging enabled</green>")
         ```
 
     """
-    loguru.logger._core.handlers[0]._filter = _filter_logs
-    logger = loguru.logger
-    logger.warn = logger.warning
-    # logger.error = partial(logger.exception)
+    if not log_file or not isinstance(log_file, str):
+        raise ValueError("log_file must be a non-empty string")
 
+    # Set default log path if not provided
+    if log_path is None:
+        log_path = Path.cwd() / "logs"
+    elif isinstance(log_path, str):
+        log_path = Path(log_path)
+
+    # Update global verbose setting for filter
+    global _log_verbose_global
+    _log_verbose_global = log_verbose
+
+    # Set up rotation configuration
+    if rotation_config is None:
+        rotation_config = LogRotationConfig()
+
+    # Set up format string
+    if format_string is None:
+        format_string = (
+            "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
+            "<level>{message}</level>"
+        )
+
+    # Convert level to string if it's an enum
+    if isinstance(level, LogLevel):
+        level = level.name
+
+    # Ensure log manager is initialized and setup log directory
+    log_manager = LogManager()
+    validated_log_path = log_manager._setup_log_directory(log_path)
+
+    # Configure console handler filter
+    try:
+        loguru.logger._core.handlers[0]._filter = _filter_logs
+    except (IndexError, AttributeError):
+        # If default handler doesn't exist, it will be handled by loguru
+        pass
+
+    logger = loguru.logger
+
+    # Add backward compatibility aliases
+    if not hasattr(logger, "warn"):
+        logger.warn = logger.warning
+
+    # Set up file logging if requested
     if log_file:
-        if not log_file.endswith(".log"):
-            log_file = f"{log_file}.log"
-        if not os.path.isabs(log_file):
-            log_file = str((Configs.basic_config.LOG_PATH / log_file).resolve())
-        logger.add(log_file, colorize=False, filter=_filter_logs)
+        log_file_path = _prepare_log_file_path(log_file, validated_log_path)
+
+        # Set up rotation parameters
+        rotation = rotation_config.max_file_size
+        if rotation_config.rotation_time:
+            rotation = rotation_config.rotation_time
+
+        # Add file handler with rotation and compression
+        logger.add(
+            log_file_path,
+            format=format_string,
+            level=level,
+            rotation=rotation,
+            retention=rotation_config.backup_count,
+            compression=_get_compression_function(rotation_config.compression),
+            colorize=False,
+            filter=_filter_logs,
+            backtrace=True,
+            diagnose=True,
+            enqueue=True,  # Thread-safe logging
+        )
 
     return logger
 
 
+def _prepare_log_file_path(log_file: str, base_log_path: Path) -> Path:
+    """
+    Prepare and validate log file path.
+
+    Args:
+        log_file: Log file name or path
+        base_log_path: Base directory for log files
+
+    Returns:
+        Path: Resolved log file path
+
+    Raises:
+        OSError: If path cannot be created or accessed
+
+    """
+    if not log_file.endswith(".log"):
+        log_file = f"{log_file}.log"
+
+    if not os.path.isabs(log_file):
+        log_path = base_log_path / log_file
+    else:
+        log_path = Path(log_file)
+
+    # Ensure parent directory exists
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    return log_path
+
+
+def _get_compression_function(compression: Optional[str]):
+    """
+    Get appropriate compression function based on format.
+
+    Args:
+        compression: Compression format ("gz", "zip", or None)
+
+    Returns:
+        Compression function or format string
+
+    """
+    if compression == "gz":
+        return "gz"
+    elif compression == "zip":
+        return "zip"
+    else:
+        return None
+
+
+# Legacy functions for backward compatibility
+
+
 class LoggerNameFilter(logging.Filter):
+    """Legacy filter class for backward compatibility with standard logging."""
+
     def filter(self, record):
+        """
+        Filter log records (legacy compatibility).
+
+        Args:
+            record: Log record to filter
+
+        Returns:
+            bool: Always True for backward compatibility
+
+        """
         return True
 
 
 def get_timestamp_ms():
+    """
+    Get current timestamp in milliseconds.
+
+    Returns:
+        int: Current timestamp in milliseconds
+
+    """
     t = time.time()
     return int(round(t * 1000))
 
 
 def get_log_file(log_path: str, sub_dir: str):
     """
-    sub_dir should contain a timestamp.
+    Create log file path with subdirectory (legacy function).
+
+    Args:
+        log_path: Base log directory path
+        sub_dir: Subdirectory name (should contain timestamp)
+
+    Returns:
+        str: Full path to log file
+
+    Raises:
+        OSError: If directory cannot be created
+
+    Note:
+        This function is deprecated. Use LogManager and build_logger instead.
+
     """
     log_dir = os.path.join(log_path, sub_dir)
     # Here should be creating a new directory each time, so `exist_ok=False`
@@ -73,6 +423,42 @@ def get_log_file(log_path: str, sub_dir: str):
 def get_config_dict(
     log_level: str, log_file_path: str, log_backup_count: int, log_max_bytes: int
 ) -> dict:
+    """
+    Generate logging configuration dictionary for standard Python logging.
+
+    This function creates a configuration dictionary compatible with Python's
+    standard logging.config.dictConfig() for applications that need to use
+    the standard logging framework instead of loguru.
+
+    Args:
+        log_level: Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        log_file_path: Path to the log file
+        log_backup_count: Number of backup files to keep during rotation
+        log_max_bytes: Maximum file size in bytes before rotation
+
+    Returns:
+        dict: Configuration dictionary for logging.config.dictConfig()
+
+    Note:
+        This function is provided for backward compatibility. For new projects,
+        consider using build_logger() with LogRotationConfig instead.
+
+    Example:
+        ```python
+        import logging.config
+        from general_utils.utils.log_common import get_config_dict
+
+        config = get_config_dict(
+            log_level="INFO",
+            log_file_path="/var/log/app.log",
+            log_backup_count=5,
+            log_max_bytes=10*1024*1024  # 10MB
+        )
+        logging.config.dictConfig(config)
+        logger = logging.getLogger("chatchat_core")
+        ```
+
+    """
     # for windows, the path should be a raw string.
     log_file_path = (
         log_file_path.encode("unicode-escape").decode()
