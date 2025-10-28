@@ -1,6 +1,6 @@
 [project]
 name = "general_utils"
-version = "1.0.5"
+version = "1.1.0"
 description = "Python Repository with general utilities"
 authors = [
     { name = "Hoang", email = "hoanglexuan5@gmail.com" },
@@ -42,6 +42,7 @@ lint.select = [
     "D",    # pydocstyle
     "T201",
     "UP",
+    "TID251",
 ]
 lint.ignore = [
     "UP006",
@@ -65,7 +66,8 @@ lint.ignore = [
     "D205", # missing-blank-line-after-summary
 ]
 exclude = ["*.ipynb"]
-
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"logging".msg = "Use logger from general_utils instead."
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

@@ -1,7 +1,8 @@
 import gzip
-import logging
+import logging  # noqa: TID251
 import os
 import shutil
+import sys
 import threading
 import time
 from pathlib import Path
@@ -123,20 +124,34 @@ class LogManager:
         except Exception as e:
             print(f"Warning: Failed to compress {file_path}: {e}")
 
-    def _log_filter(self, record: dict, log_verbose: bool = True) -> bool:
+    def _log_filter(
+        self,
+        record: dict,
+        log_verbose: bool = True,
+        min_level: Union[LogLevel, str] = LogLevel.INFO,
+    ) -> bool:
         """
         Enhanced log filtering with better error handling.
 
         Args:
             record: Log record dictionary
             log_verbose: Whether to show debug logs and full error traces
+            min_level: Minimum log level to show
 
         Returns:
             bool: True if the record should be logged, False otherwise
 
         """
         try:
-            # Hide debug logs if verbose mode is disabled
+            # Convert min_level to LogLevel enum if it's a string
+            if isinstance(min_level, str):
+                min_level = LogLevel[min_level.upper()]
+
+            # Filter by minimum log level
+            if record["level"].no < min_level.value:
+                return False
+
+            # Hide debug and trace logs if verbose mode is disabled (additional filter)
             if record["level"].no <= LogLevel.DEBUG.value and not log_verbose:
                 return False
 
@@ -153,6 +168,7 @@ class LogManager:
 
 # Global variables for filter state
 _log_verbose_global = True
+_log_level_global = LogLevel.INFO
 _log_manager_instance = None
 
 
@@ -167,10 +183,12 @@ def _filter_logs(record: dict) -> bool:
         bool: True if the record should be logged, False otherwise
 
     """
-    global _log_manager_instance, _log_verbose_global
+    global _log_manager_instance, _log_verbose_global, _log_level_global
     if _log_manager_instance is None:
         _log_manager_instance = LogManager()
-    return _log_manager_instance._log_filter(record, _log_verbose_global)
+    return _log_manager_instance._log_filter(
+        record, _log_verbose_global, _log_level_global
+    )
 
 
 @cached(max_size=100, algorithm=CachingAlgorithmFlag.LRU)
@@ -240,9 +258,12 @@ def build_logger(
     elif isinstance(log_path, str):
         log_path = Path(log_path)
 
-    # Update global verbose setting for filter
-    global _log_verbose_global
+    # Update global verbose setting and log level for filter
+    global _log_verbose_global, _log_level_global
     _log_verbose_global = log_verbose
+    _log_level_global = (
+        level if isinstance(level, LogLevel) else LogLevel[level.upper()]
+    )
 
     # Set up rotation configuration
     if rotation_config is None:
@@ -265,14 +286,21 @@ def build_logger(
     log_manager = LogManager()
     validated_log_path = log_manager._setup_log_directory(log_path)
 
-    # Configure console handler filter
-    try:
-        loguru.logger._core.handlers[0]._filter = _filter_logs
-    except (IndexError, AttributeError):
-        # If default handler doesn't exist, it will be handled by loguru
-        pass
+    # Ensure log manager is initialized and setup log directory
+    log_manager = LogManager()
+    validated_log_path = log_manager._setup_log_directory(log_path)
 
     logger = loguru.logger
+
+    # Remove default handler and add console handler with proper filter and level
+    logger.remove()
+    logger.add(
+        sys.stderr,
+        format=format_string,
+        level=level,
+        filter=_filter_logs,
+        colorize=True,
+    )
 
     # Add backward compatibility aliases
     if not hasattr(logger, "warn"):

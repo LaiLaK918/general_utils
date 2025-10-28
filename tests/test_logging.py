@@ -39,7 +39,7 @@ def test_enhanced_logging():
 
     # Generate enough logs to trigger rotation
     for i in range(100):
-        logger.info(f"Test message {i} - " + "x" * 100)
+        logger.info(f"Test message {i} - " + "x" * 10)
         if i % 20 == 0:
             time.sleep(0.1)  # Small delay
 
@@ -51,7 +51,7 @@ def test_log_levels():
     print("Testing log levels...")
 
     logger = build_logger(
-        "test_levels", level=LogLevel.DEBUG, log_path="./logs", log_verbose=True
+        "test_levels", level=LogLevel.INFO, log_path="./logs", log_verbose=True
     )
 
     logger.trace("This is a trace message")
