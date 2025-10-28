@@ -22,6 +22,6 @@ class HealthCheckResult(BaseModel):
     stale: Optional[bool] = False
 
 
-class CachedHealthCheckResult(HealthCheckResult):
+class CachedHealthCheckResult(BaseModel):
     time: float
     data: HealthCheckResult
