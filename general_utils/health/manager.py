@@ -2,7 +2,7 @@ import asyncio
 import time
 from typing import Any, Dict, List, Optional
 
-import loguru
+import loguru._logger
 
 from ..schemas.health import (
     CachedHealthCheckResult,
@@ -62,7 +62,7 @@ class HealthManager:
         checks: List[HealthCheckBase],
         cache_ttl: int = 15,
         interval: int = 30,
-        logger: Optional[loguru.Logger] = None,
+        logger: Optional[loguru._logger.Logger] = None,
     ):
         """
         Initialize HealthManager.
@@ -71,7 +71,7 @@ class HealthManager:
             checks (List[HealthCheckBase]): List of health check instances.
             cache_ttl (int): Time-to-live for cached results in seconds.
             interval (int): Interval between background checks in seconds.
-            logger (Optional[loguru.Logger]): Logger instance for structured logging.
+            logger (Optional[loguru._logger.Logger]): Logger instance for structured logging.
 
         """
         self.checks = checks
