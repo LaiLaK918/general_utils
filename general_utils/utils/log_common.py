@@ -124,7 +124,12 @@ class LogManager:
         except Exception as e:
             print(f"Warning: Failed to compress {file_path}: {e}")
 
-    def _log_filter(self, record: dict, log_verbose: bool = True, min_level: Union[LogLevel, str] = LogLevel.INFO) -> bool:
+    def _log_filter(
+        self,
+        record: dict,
+        log_verbose: bool = True,
+        min_level: Union[LogLevel, str] = LogLevel.INFO,
+    ) -> bool:
         """
         Enhanced log filtering with better error handling.
 
@@ -141,7 +146,7 @@ class LogManager:
             # Convert min_level to LogLevel enum if it's a string
             if isinstance(min_level, str):
                 min_level = LogLevel[min_level.upper()]
-            
+
             # Filter by minimum log level
             if record["level"].no < min_level.value:
                 return False
@@ -181,7 +186,9 @@ def _filter_logs(record: dict) -> bool:
     global _log_manager_instance, _log_verbose_global, _log_level_global
     if _log_manager_instance is None:
         _log_manager_instance = LogManager()
-    return _log_manager_instance._log_filter(record, _log_verbose_global, _log_level_global)
+    return _log_manager_instance._log_filter(
+        record, _log_verbose_global, _log_level_global
+    )
 
 
 @cached(max_size=100, algorithm=CachingAlgorithmFlag.LRU)
@@ -254,7 +261,9 @@ def build_logger(
     # Update global verbose setting and log level for filter
     global _log_verbose_global, _log_level_global
     _log_verbose_global = log_verbose
-    _log_level_global = level if isinstance(level, LogLevel) else LogLevel[level.upper()]
+    _log_level_global = (
+        level if isinstance(level, LogLevel) else LogLevel[level.upper()]
+    )
 
     # Set up rotation configuration
     if rotation_config is None:
@@ -282,7 +291,7 @@ def build_logger(
     validated_log_path = log_manager._setup_log_directory(log_path)
 
     logger = loguru.logger
-    
+
     # Remove default handler and add console handler with proper filter and level
     logger.remove()
     logger.add(
