@@ -14,12 +14,7 @@ try:
 except ImportError:
     OTEL_AVAILABLE = False
 
-from ..utils.log_common import build_logger
 from ..utils.serialization import _serialize_to_json
-
-logger = build_logger(__name__)
-
-
 
 
 def set_serialize_fallback(fallback_func: Callable[[Any], dict]) -> None:
