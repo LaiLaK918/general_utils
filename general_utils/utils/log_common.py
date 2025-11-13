@@ -172,6 +172,48 @@ _log_level_global = LogLevel.INFO
 _log_manager_instance = None
 
 
+def _get_effective_log_level(
+    level: Union[str, LogLevel], is_default: bool = False
+) -> Union[str, LogLevel]:
+    """
+    Determine the effective log level based on parameter and environment variable.
+
+    Priority order:
+    1. If level parameter is provided explicitly (not default), use it as highest priority
+    2. If GNU_LOG_LEVEL environment variable is set, use it
+    3. Use default LogLevel.INFO
+
+    Args:
+        level: The log level parameter passed to build_logger
+        is_default: Whether the level parameter is the default value
+
+    Returns:
+        Union[str, LogLevel]: The effective log level to use
+
+    """
+    # If parameter is explicitly provided (not default), use it with highest priority
+    if not is_default:
+        return level
+
+    # Check if GNU_LOG_LEVEL environment variable is set
+    env_log_level = os.getenv("GNU_LOG_LEVEL")
+
+    if env_log_level:
+        try:
+            # Try to convert environment variable to LogLevel enum
+            if isinstance(env_log_level, str):
+                return LogLevel[env_log_level.upper()]
+            return env_log_level
+        except (KeyError, ValueError):
+            # If invalid level in environment variable, fall back to parameter
+            print(
+                f"Warning: Invalid log level '{env_log_level}' in GNU_LOG_LEVEL environment variable, using parameter value"
+            )
+
+    # Return the provided level (default value)
+    return level
+
+
 def _filter_logs(record: dict) -> bool:
     """
     Legacy filter function for backward compatibility.
@@ -209,12 +251,18 @@ def build_logger(
     - Configurable formatting
     - Thread-safe operation
     - Enhanced error handling
+    - Environment variable-based log level configuration
+
+    Log Level Priority:
+    1. If level parameter is explicitly provided (not default), it takes highest priority
+    2. If GNU_LOG_LEVEL environment variable is set, use it (only when level is default)
+    3. Default is LogLevel.INFO if neither is specified
 
     Args:
         log_file: Name of the log file (without extension) or full path
         rotation_config: Configuration for log rotation and compression
         format_string: Custom format string for log messages
-        level: Minimum log level to capture
+        level: Minimum log level to capture (takes priority over GNU_LOG_LEVEL env var if explicitly set)
         log_path: Base directory for log files (defaults to ./logs)
         log_verbose: Whether to show debug logs and full error traces
 
@@ -228,10 +276,18 @@ def build_logger(
     Example:
         ```python
         from general_utils.utils.log_common import build_logger, LogRotationConfig
+        import os
 
-        # Basic usage
+        # Basic usage - will use GNU_LOG_LEVEL env var if set, otherwise INFO
         logger = build_logger("api")
         logger.info("Application started")
+
+        # Parameter takes priority over environment variable
+        os.environ['GNU_LOG_LEVEL'] = 'DEBUG'
+        logger = build_logger("api", level="WARNING")  # Will use WARNING (parameter priority)
+
+        # Environment variable used when parameter is default
+        logger = build_logger("api")  # Will use DEBUG from env var
 
         # With custom rotation and path
         rotation_config = LogRotationConfig(
@@ -252,6 +308,12 @@ def build_logger(
     if not log_file or not isinstance(log_file, str):
         raise ValueError("log_file must be a non-empty string")
 
+    # Check if level is the default value
+    is_default_level = level == LogLevel.INFO
+
+    # Determine effective log level based on parameter priority and environment variable
+    effective_level = _get_effective_log_level(level, is_default_level)
+
     # Set default log path if not provided
     if log_path is None:
         log_path = Path.cwd() / "logs"
@@ -262,7 +324,9 @@ def build_logger(
     global _log_verbose_global, _log_level_global
     _log_verbose_global = log_verbose
     _log_level_global = (
-        level if isinstance(level, LogLevel) else LogLevel[level.upper()]
+        effective_level
+        if isinstance(effective_level, LogLevel)
+        else LogLevel[effective_level.upper()]
     )
 
     # Set up rotation configuration
@@ -278,13 +342,9 @@ def build_logger(
             "<level>{message}</level>"
         )
 
-    # Convert level to string if it's an enum
-    if isinstance(level, LogLevel):
-        level = level.name
-
-    # Ensure log manager is initialized and setup log directory
-    log_manager = LogManager()
-    validated_log_path = log_manager._setup_log_directory(log_path)
+    # Convert effective_level to string if it's an enum
+    if isinstance(effective_level, LogLevel):
+        effective_level = effective_level.name
 
     # Ensure log manager is initialized and setup log directory
     log_manager = LogManager()
@@ -297,7 +357,7 @@ def build_logger(
     logger.add(
         sys.stderr,
         format=format_string,
-        level=level,
+        level=effective_level,
         filter=_filter_logs,
         colorize=True,
     )
@@ -319,7 +379,7 @@ def build_logger(
         logger.add(
             log_file_path,
             format=format_string,
-            level=level,
+            level=effective_level,
             rotation=rotation,
             retention=rotation_config.backup_count,
             compression=_get_compression_function(rotation_config.compression),
