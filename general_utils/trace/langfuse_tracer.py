@@ -2,8 +2,8 @@ import asyncio
 import functools
 from typing import Any, Callable, Dict, List, Optional
 
-from langfuse import SpanLevel, get_client, propagate_attributes
-from langfuse._internal.trace_context import TraceContext
+from langfuse import get_client, propagate_attributes
+from langfuse.types import SpanLevel, TraceContext
 
 
 def langfuse_trace(
