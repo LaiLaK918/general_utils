@@ -7,8 +7,6 @@ import redis
 from fastapi import Request
 from pydantic import BaseModel
 
-from ..utils.serialization import _serialize_to_json
-
 
 class RedisCache:
     def __init__(self, redis_url: str, prefix: str = "cache", default_expire: int = 60):
@@ -80,14 +78,18 @@ class RedisCache:
 
     async def init(self):
         """Initialize Redis connection."""
-        self.redis = redis.asyncio.from_url(
-            self.redis_url, encoding="utf-8", decode_responses=True
-        )
+        try:
+            self.redis = redis.from_url(
+                self.redis_url, encoding="utf-8", decode_responses=True
+            )
+        except Exception:
+            self.redis = None
+            
 
     async def close(self):
         """Close Redis connection."""
         if self.redis:
-            await self.redis.aclose()
+            await self.redis.close()
 
     def _hash_body(self, body: Any) -> str:
         """Hash body to create a unique key for POST/PUT."""
@@ -101,8 +103,7 @@ class RedisCache:
         self, request: Request, custom_key: Optional[str] = None, body: Any = None
     ) -> str:
         if custom_key:
-            body_hash = self._hash_body(body)
-            return f"{self.prefix}:{custom_key}:{body_hash}"
+            return f"{self.prefix}:{custom_key}"
 
         # If POST/PUT/PATCH and has body → hash into key
         if request.method in {"POST", "PUT", "PATCH"} and body is not None:
@@ -128,8 +129,6 @@ class RedisCache:
         def decorator(func: Callable):
             @functools.wraps(func)
             async def wrapper(*args, **kwargs):
-                if not self.redis:
-                    await self.init()
                 request: Request = None
                 body_data = None
 
@@ -146,17 +145,17 @@ class RedisCache:
                     body_data = kwargs[model_param]
 
                 cache_key = self._build_key(request, key, body=body_data)
-
-                cached = await self.redis.get(cache_key)
+                cached = None
+                if self.redis:
+                    cached = await self.redis.get(cache_key)
                 if cached:
                     return json.loads(cached)
 
                 result = await func(*args, **kwargs)
-                await self.redis.setex(
-                    cache_key,
-                    expire_seconds or self.default_expire,
-                    _serialize_to_json(result),
-                )
+                if self.redis:
+                    await self.redis.setex(
+                        cache_key, expire_seconds or self.default_expire, json.dumps(result)
+                    )
                 return result
 
             return wrapper
@@ -165,11 +164,14 @@ class RedisCache:
 
     async def clear_cache(self, key: str) -> int:
         """Clear cache for a specific key."""
-        return await self.redis.delete(f"{self.prefix}:{key}")
+        if self.redis:
+            return await self.redis.delete(f"{self.prefix}:{key}")
+        return 0
 
     async def clear_all_cache(self, pattern: str = "*") -> int:
         """Clear all cache matching the pattern."""
-        keys = await self.redis.keys(f"{self.prefix}:{pattern}")
-        if keys:
-            return await self.redis.delete(*keys)
+        if self.redis:
+            keys = await self.redis.keys(f"{self.prefix}:{pattern}")
+            if keys:
+                return await self.redis.delete(*keys)
         return 0
