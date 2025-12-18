@@ -147,7 +147,9 @@ class RedisCache:
                 cache_key = self._build_key(request, key, body=body_data)
                 cached = None
                 if self.redis:
-                    cached = await self.redis.get(cache_key)
+                    cached = self.redis.get(cache_key)
+                    if cached:
+                        cached = await cached
                 if cached:
                     return json.loads(cached)
 
