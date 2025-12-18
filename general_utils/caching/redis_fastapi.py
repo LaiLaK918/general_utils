@@ -1,11 +1,14 @@
 import functools
 import hashlib
 import json
+import logging
 from typing import Any, Callable, Optional
 
-import redis
+import redis.asyncio as redis
 from fastapi import Request
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 
 class RedisCache:
@@ -79,12 +82,12 @@ class RedisCache:
     async def init(self):
         """Initialize Redis connection."""
         try:
-            self.redis = redis.from_url(
+            self.redis = await redis.from_url(
                 self.redis_url, encoding="utf-8", decode_responses=True
             )
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to initialize Redis connection: {e}")
             self.redis = None
-            
 
     async def close(self):
         """Close Redis connection."""
@@ -145,21 +148,32 @@ class RedisCache:
                     body_data = kwargs[model_param]
 
                 cache_key = self._build_key(request, key, body=body_data)
-                cached = None
-                if self.redis:
-                    cached = self.redis.get(cache_key)
-                    if cached:
-                        cached = await cached
-                if cached:
-                    return json.loads(cached)
 
+                # Try to get from cache with error handling
+                try:
+                    if self.redis:
+                        cached = await self.redis.get(cache_key)
+                        if cached:
+                            return json.loads(cached)
+                except Exception as e:
+                    logger.warning(f"Redis get error for key {cache_key}: {e}")
+                    # Continue to execute the function if cache fails
+
+                # Execute the original function
                 result = await func(*args, **kwargs)
-                if self.redis:
-                    resp = self.redis.setex(
-                        cache_key, expire_seconds or self.default_expire, json.dumps(result)
-                    )
-                    if resp:
-                        await resp
+
+                # Try to set cache with error handling
+                try:
+                    if self.redis:
+                        await self.redis.setex(
+                            cache_key,
+                            expire_seconds or self.default_expire,
+                            json.dumps(result),
+                        )
+                except Exception as e:
+                    logger.warning(f"Redis set error for key {cache_key}: {e}")
+                    # Don't fail if caching fails, just log and continue
+
                 return result
 
             return wrapper
