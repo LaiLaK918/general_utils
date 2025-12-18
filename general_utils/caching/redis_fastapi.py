@@ -155,9 +155,11 @@ class RedisCache:
 
                 result = await func(*args, **kwargs)
                 if self.redis:
-                    await self.redis.setex(
+                    resp = self.redis.setex(
                         cache_key, expire_seconds or self.default_expire, json.dumps(result)
                     )
+                    if resp:
+                        await resp
                 return result
 
             return wrapper
