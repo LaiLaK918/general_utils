@@ -1,7 +1,7 @@
 import functools
 import hashlib
 import json
-import logging
+import logging  # noqa: TID251
 from typing import Any, Callable, Optional
 
 import redis.asyncio as redis
@@ -103,16 +103,21 @@ class RedisCache:
         return hashlib.sha256(body_str.encode("utf-8")).hexdigest()
 
     def _build_key(
-        self, request: Request, custom_key: Optional[str] = None, body: Any = None
+        self, request: Request | None, custom_key: Optional[str] = None, body: Any = None
     ) -> str:
-        if custom_key:
-            return f"{self.prefix}:{custom_key}"
 
         # If POST/PUT/PATCH and has body → hash into key
-        if request.method in {"POST", "PUT", "PATCH"} and body is not None:
+        if request and request.method in {"POST", "PUT", "PATCH"} and body is not None:
             body_hash = self._hash_body(body)
             return f"{self.prefix}:{request.url.path}:{body_hash}"
 
+        if custom_key and not body:
+            return f"{self.prefix}:{custom_key}"
+        
+        if custom_key and body:
+            body_hash = self._hash_body(body)
+            return f"{self.prefix}:{custom_key}:{body_hash}"
+        
         # Default GET key by path + query
         return f"{self.prefix}:{request.url.path}?{request.url.query}"
 
