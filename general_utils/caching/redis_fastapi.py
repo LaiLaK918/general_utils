@@ -152,7 +152,11 @@ class RedisCache:
                     if isinstance(arg, Request):
                         request = arg
                         break
-                if not request and "request" in kwargs:
+                if (
+                    not request
+                    and "request" in kwargs
+                    and isinstance(kwargs["request"], Request)
+                ):
                     request = kwargs["request"]
 
                 # Lấy model/body để hash key (nếu cần)
