@@ -103,21 +103,28 @@ class RedisCache:
         return hashlib.sha256(body_str.encode("utf-8")).hexdigest()
 
     def _build_key(
-        self, request: Request | None, custom_key: Optional[str] = None, body: Any = None
+        self,
+        request: Request | None,
+        custom_key: Optional[str] = None,
+        body: Any = None,
     ) -> str:
-
         # If POST/PUT/PATCH and has body → hash into key
-        if request and request.method in {"POST", "PUT", "PATCH"} and body is not None:
+        if (
+            request
+            and isinstance(request, Request)
+            and request.method in {"POST", "PUT", "PATCH"}
+            and body is not None
+        ):
             body_hash = self._hash_body(body)
             return f"{self.prefix}:{request.url.path}:{body_hash}"
 
         if custom_key and not body:
             return f"{self.prefix}:{custom_key}"
-        
+
         if custom_key and body:
             body_hash = self._hash_body(body)
             return f"{self.prefix}:{custom_key}:{body_hash}"
-        
+
         # Default GET key by path + query
         return f"{self.prefix}:{request.url.path}?{request.url.query}"
 
