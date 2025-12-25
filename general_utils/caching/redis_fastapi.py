@@ -1,7 +1,10 @@
+import dataclasses
 import functools
 import hashlib
 import json
 import logging  # noqa: TID251
+from datetime import date, datetime
+from enum import Enum
 from typing import Any, Callable, Optional
 
 import redis.asyncio as redis
@@ -94,12 +97,45 @@ class RedisCache:
         if self.redis:
             await self.redis.close()
 
+    def _serialize_to_json(self, obj: Any) -> str:
+        """
+        Serialize object to JSON string, handling complex types.
+
+        Supports:
+            - Pydantic BaseModel
+            - dataclasses
+            - Enum
+            - datetime/date
+            - Standard JSON types
+        """
+
+        def default_serializer(o):
+            # Pydantic BaseModel
+            if isinstance(o, BaseModel):
+                return o.model_dump()
+            # dataclass
+            if dataclasses.is_dataclass(o):
+                return dataclasses.asdict(o)
+            # Enum
+            if isinstance(o, Enum):
+                return o.value
+            # datetime/date
+            if isinstance(o, datetime | date):
+                return o.isoformat()
+            # Set
+            if isinstance(o, set):
+                return list(o)
+            raise TypeError(
+                f"Object of type {type(o).__name__} is not JSON serializable"
+            )
+
+        return json.dumps(
+            obj, default=default_serializer, ensure_ascii=False, sort_keys=True
+        )
+
     def _hash_body(self, body: Any) -> str:
         """Hash body to create a unique key for POST/PUT."""
-        if isinstance(body, BaseModel):
-            body_str = body.model_dump_json()
-        else:
-            body_str = json.dumps(body, sort_keys=True, ensure_ascii=False)
+        body_str = self._serialize_to_json(body)
         return hashlib.sha256(body_str.encode("utf-8")).hexdigest()
 
     def _build_key(
@@ -184,7 +220,7 @@ class RedisCache:
                         await self.redis.setex(
                             cache_key,
                             expire_seconds or self.default_expire,
-                            json.dumps(result),
+                            self._serialize_to_json(result),
                         )
                 except Exception as e:
                     logger.warning(f"Redis set error for key {cache_key}: {e}")
